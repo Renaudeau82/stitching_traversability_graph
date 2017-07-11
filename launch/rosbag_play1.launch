@@ -1,0 +1,4 @@
+<launch>
+<param name="/use_sim_time" value="true"/>
+<node pkg="rosbag" type="play" name="player" output="screen" args="/home/eth/ibis-erl-2017-06-16-11-47-41.bag --clock"> </node>
+</launch>

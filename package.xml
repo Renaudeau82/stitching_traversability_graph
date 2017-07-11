@@ -1,0 +1,27 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>stitching_traversability_graph</name>
+  <version>0.0.0</version>
+  <description>The stitching_traversability_graph package</description>
+
+  <author>Brice Renaudeau</author>
+  <maintainer email="brice_ren@hotmail.fr">Brice Renaudeau</maintainer>
+  <license>New BSD</license>
+
+  <!-- Dependencies which this package needs to build itself. -->
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>catkin_simple</buildtool_depend>
+
+  <!-- Dependencies. -->
+  <depend>roscpp</depend>
+  <depend>cmake_modules</depend>
+  <depend>pcl_ros</depend>
+  <depend>image_transport</depend>
+  <depend>cv_bridge</depend>
+  <depend>std_srvs</depend>
+
+  <depend>tf</depend>
+  <depend>voxblox_ros</depend>
+  <depend>minkindr_conversions</depend>
+
+</package>

@@ -1,0 +1,62 @@
+<launch>
+<!-- Args -->
+<arg name="mav_name" default='ibis'/>
+<arg name="namespace" default="$(arg mav_name)"/>
+<arg name="dense_mapping_frame" default="enu"/>
+<arg name="scale" default="0.5" />
+<arg name="process_every_nth_frame" default="1" />
+<arg name="stereo_params_camchain" default="$(find mav_startup)/parameters/mavs/ibis/camchain_p22031.yaml"/>
+<arg name="robot_size" default="20"/>
+<arg name="resolution" default="40"/>
+<arg name="gamma" default="1.1"/>
+
+<!-- ===== Play rosbag ======================================================== -->
+<include file="$(find stitching_traversability_graph)/launch/rosbag_play1.launch"/> 
+<param name="/use_sim_time" value="true"/>
+
+<!-- ===== Mav namespace ================================== -->
+<group ns="$(arg namespace)">
+
+<!-- ===== Stereo Reconstruction Down =================================== -->
+<group ns="cam23">
+<node name="dense_stereo" pkg="image_undistort" type="dense_stereo_node">
+<param name="input_camera_info_from_ros_params" value = "true"/>
+<param name="first_camera_namespace" value="cam2"/>
+<param name="second_camera_namespace" value="cam3"/>
+<param name="first_output_frame" value="cam2_rect"/>
+<param name="second_output_frame" value="cam3_rect"/>
+<param name="scale" value="$(arg scale)"/>
+<param name="process_every_nth_frame" value="$(arg process_every_nth_frame)"/>
+<rosparam file="$(arg stereo_params_camchain)"/>
+<remap from="raw/first/image" to="/$(arg mav_name)/cam2/image_raw"/>
+<remap from="raw/second/image" to="/$(arg mav_name)/cam3/image_raw"/>
+<remap from="raw/first/camera_info" to="/$(arg mav_name)/cam2/camera_info"/>
+<remap from="raw/second/camera_info" to="/$(arg mav_name)/cam3/camera_info"/>
+<remap from="/$(arg namespace)/cam23/dense_stereo/pointcloud" to="/$(arg namespace)/stereo_points2"/>
+<param name="capability_group" value="Reconstruction" />
+</node>
+</group>
+
+<!-- ===== Conversion to height image and compute traversability =================================== -->
+<node name="stitching_traversability_graph_node" pkg="stitching_traversability_graph" type="stitching_traversability_graph_node" output="screen" >
+<remap from="/pcd" to="/ibis/stereo_points2"/>
+<param name="resolution" value="$(arg resolution)"/>
+<param name="gamma" value="$(arg gamma)"/>
+<param name="verbose" value="true"/>
+<param name="send_points" value="false"/>
+<param name="automatic_pub" value="true"/> 
+ </node>
+
+</group>
+
+<!-- ===== Traversability image to graph =================================== -->
+<node name="traversability2graphGeneral" pkg="pkg_graph_general" type="mask2graphGeneral">
+<remap from="/image_mask" to="/image_traversability"/>
+<param name="delta" value="$(arg robot_size)"/>
+<param name="path" value="/home/eth/graphe_traversability.txt"/> 
+</node>
+
+<!-- ===== RVIZ =================================== 
+<node name="rviz" pkg="rviz" type="rviz" args="-d $(find stitching_traversability_graph)/cfg/rviz_config.rviz"/>-->
+
+</launch>
