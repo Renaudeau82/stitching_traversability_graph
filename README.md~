@@ -5,7 +5,6 @@ ROS package containing 2 nodes :
 
 *  **a_star_planner_node :**  subscribe to a binary occupation map and to source et goal point then compute the trajectory between them using A* algorithm
 
-
 # Dependences #
 
 * Opencv, Boost, pcl, voxblox, minkindr
