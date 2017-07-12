@@ -25,4 +25,4 @@ ROS package containing 2 nodes :
 
 # Pipeline #
 
-![alt text](https://github.com/Renaudeau82/stitching_traversability_graph/pipeline.png "Pipeline")
+![alt text](https://raw.githubusercontent.com/Renaudeau82/stitching_traversability_graph/master/pipeline.png "Pipeline")

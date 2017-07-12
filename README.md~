@@ -22,3 +22,7 @@ ROS package containing 2 nodes :
 * **robot_size :** param the size of the robot in pixels for the filtering process
 
 * **gamma :** value used in gamme filter of the elevation map image to reduce noize
+
+# Pipeline #
+
+![alt text](https://raw.githubusercontent.com/Renaudeau82/stitching_traversability_graph/master/pipeline.png "Pipeline")
