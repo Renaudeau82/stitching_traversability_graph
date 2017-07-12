@@ -5,11 +5,20 @@ ROS package containing 2 nodes :
 
 *  **a_star_planner_node :**  subscribe to a binary occupation map and to source et goal point then compute the trajectory between them using A* algorithm
 
-
 # Dependences #
 
 * Opencv, Boost, pcl, voxblox, minkindr
 
 # Usage #
 
-* **roslaunch rosbag_stitching_traversability_astar.launch :** Launch rosbag, dense reconstr
+* **roslaunch rosbag_stitching_traversability_astar.launch :** Launch rosbag, dense reconstruction, stiching_traversability and astar_planer
+
+# Parameters #
+
+* **scale :** param from dense reconstruction to reduce the nmber of point in the pointCloud
+
+* **resolution :** param for the image size in pixels/meter
+
+* **robot_size :** param the size of the robot in pixels for the filtering process
+
+* **gamma :** value used in gamme filter of the elevation map image to reduce noize
