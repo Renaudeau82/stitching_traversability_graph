@@ -8,7 +8,8 @@
 <arg name="stereo_params_camchain" default="$(find mav_startup)/parameters/mavs/ibis/camchain_p22031.yaml"/>
 <arg name="robot_size" default="20"/>
 <arg name="resolution" default="40"/>
-<arg name="gamma" default="1.2"/>
+<arg name="gamma" default="1.5"/>
+<arg name="automatic_pub" default="true"/>
 
 <!-- ===== Play rosbag ======================================================== -->
 <include file="$(find stitching_traversability_graph)/launch/rosbag_play1.launch"/> 
@@ -45,8 +46,7 @@
 <param name="gamma" value="$(arg gamma)"/> 
 <param name="automatic_pub" value="true"/> 
 <param name="verbose" value="true"/>
-<param name="send_points" value="false"/>
-<param name="automatic_pub" value="true"/> 
+<param name="automatic_pub" value="$(arg automatic_pub)"/> 
 </node>
 
 </group>
