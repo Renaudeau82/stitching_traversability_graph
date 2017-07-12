@@ -50,7 +50,7 @@ private:
   // service callBack
   bool publishCallback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
   // Datacallback
-  void pointCloudCallback(const sensor_msgs::PointCloud2::Ptr& pointCloud); // en public pour faire un lancement autommatque depuis le main()
+  void pointCloudCallback(const sensor_msgs::PointCloud2::Ptr& pointCloud);
 
   // Node Handles
   ros::NodeHandle nh_;
@@ -80,13 +80,13 @@ private:
   // Global variables
   bool first;
   bool pub;
-  // limites de la zone en m
+  // limits(in meters) of the full area (for trsansform)
   double minX;
   double maxX;
   double minY;
   double maxY;
   double zscale;
-  // image générale de la zone
+  // images of the full area
   cv::Mat traversability_full_image;
   cv::Mat elevation_full_image;
   cv::Mat pcd_in_full_image;

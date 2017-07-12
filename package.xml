@@ -2,7 +2,7 @@
 <package format="2">
   <name>stitching_traversability_graph</name>
   <version>0.0.0</version>
-  <description>The stitching_traversability_graph package</description>
+  <description>The stitching_traversability_graph package, see README</description>
 
   <author>Brice Renaudeau</author>
   <maintainer email="brice_ren@hotmail.fr">Brice Renaudeau</maintainer>

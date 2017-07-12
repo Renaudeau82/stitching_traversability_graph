@@ -9,7 +9,7 @@
 <arg name="robot_size" default="20"/>
 <arg name="resolution" default="40"/>
 <arg name="gamma" default="1.5"/>
-<arg name="automatic_pub" default="true"/>
+<arg name="automatic_pub" default="false"/>
 
 <!-- ===== Play rosbag ======================================================== -->
 <include file="$(find stitching_traversability_graph)/launch/rosbag_play1.launch"/> 
@@ -53,7 +53,7 @@
 
 <!-- ===== Traversability image to A* =================================== -->
 <node name="A_star_planner_node" pkg="stitching_traversability_graph" type="a_star_planner_node" output="screen" >
-<param name="step_size" value="10"/>
+<param name="step_size" value="$(arg robot_size)"/>
 </node>
 
 <!-- ===== RVIZ =================================== 

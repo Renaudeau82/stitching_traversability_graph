@@ -305,23 +305,25 @@ private:
     ros::NodeHandle nh; ///< Node Handle
     image_transport::ImageTransport it; ///< Image transport handle
 
-    image_transport::Subscriber pCS; ///< Subscriber de l'image 2D de la grille d'occupation
-    ros::Subscriber sub_source_; ///< Subscriber de l'etat du robot
-    ros::Subscriber sub_dest_; ///< Subscriber de la position désirée du scara
+    image_transport::Subscriber pCS; ///< Subscriber occupation images
+    ros::Subscriber sub_source_; ///< Subscriber to stating point
+    ros::Subscriber sub_dest_; ///< Subscriber to goal point
 
-    image_transport::Publisher pImage; ///< Publisher de l'image 2D du resultat
-    ros::Publisher pTraj; ///< Publisher de la trajectoire à faire
+    image_transport::Publisher pImage; ///< Publisher of result image
+    ros::Publisher pTraj; ///< Publisher trajectory
 
-    cv::Point pDest_; ///< Position désirée (pixels)
-    cv::Point pSource_; ///< Position de départ (pixels)
+    // global variables
+    cv::Point pDest_;
+    cv::Point pSource_;
     bool new_traj;
+    // param
     int step;
 
 public:
     Worker(); ///< Constructeur du worker
-    void cbNewCSimg(const sensor_msgs::ImageConstPtr &msg); ///< Callback sur l'arrivée d'une image binaire
-    void cbPtSource(geometry_msgs::Point::ConstPtr msg); ///< Callback sur l'arrivé d'un état du robot
-    void cbPtDest(geometry_msgs::Point::ConstPtr msg); ///< Callback gérant la réception d'une nouvelle consigne
+    void cbNewCSimg(const sensor_msgs::ImageConstPtr &msg); ///< Callback for new occupancy image
+    void cbPtSource(geometry_msgs::Point::ConstPtr msg); ///< Callback for  new start point
+    void cbPtDest(geometry_msgs::Point::ConstPtr msg); ///< Callback for new goal point
 };
 
 Worker::Worker():nh("~"),it(nh)
@@ -347,6 +349,7 @@ void Worker::cbNewCSimg(const sensor_msgs::ImageConstPtr &msg)
     {
         ros::Time time0, time1;
         double duration;
+        time0 = ros::Time::now();
 
         cv_bridge::CvImagePtr input_bridge;
         std_msgs::Header H = msg->header;
@@ -359,20 +362,23 @@ void Worker::cbNewCSimg(const sensor_msgs::ImageConstPtr &msg)
             return;
         }
 
-        /// on la stocke donc dans une cv::Mat
+        /// retreave image from msg
         cv::Mat IN_img=input_bridge->image.clone();
-        // modification de l'image pour bloquer les passages plus petits que le robot
         //cv::imshow("input image",IN_img);
         //cv::waitKey(100);
 
-        /// On créer le lab à partir de l'image
+        /// create lab from image
         maze maze_graph(IN_img);
+        // computation time
+        time1 = ros::Time::now();
+        duration = time1.toSec() - time0.toSec();
+        ROS_INFO_STREAM("Received image, create maze in "<<duration<<"sec");
 
-        /// On définit le départ et l'arrivée
+        /// define starting and goal points
         maze_graph.source = {{pSource_.x, pSource_.y}};
         maze_graph.goal = {{pDest_.x, pDest_.y}};
 
-        /// on résout le problème, si la destination n'est pas dans un obstacle !!!
+        /// solve
         time0 = ros::Time::now();
         if(IN_img.at<unsigned char>(pDest_.x,pDest_.y)>128)
             maze_graph.solve();
@@ -381,7 +387,7 @@ void Worker::cbNewCSimg(const sensor_msgs::ImageConstPtr &msg)
         duration = time1.toSec() - time0.toSec();
         ROS_INFO_STREAM("try to solve A* : "<<duration<<"sec");
 
-        /// Création image solution et publish
+        /// Create image solution and publish
         cv::Mat OUT_img;
         OUT_img = maze_graph.to_image();
         sensor_msgs::ImagePtr img_msg = cv_bridge::CvImage(H, "bgr8",OUT_img).toImageMsg();
@@ -393,9 +399,9 @@ void Worker::cbNewCSimg(const sensor_msgs::ImageConstPtr &msg)
             return;
         }
 
-        /// Récupération de la solution et publish
+        /// create sampled trajectory and publish
         std::deque<vertex_descriptor> traj = maze_graph.get_solution();
-        // Si pas de trajectoire, pour l'instant on se contente de ne rien faire
+        // if solution but not trajectry just return
         if(traj.size()==0)
         {
             ROS_INFO("A star have no trajectory !");
@@ -440,12 +446,11 @@ void Worker::cbPtDest(geometry_msgs::Point::ConstPtr msg)
 ///--------------------------------------- Main function for the node ----------------------------------///
 int main(int argc, char ** argv)
 {
-    // Initialisation du noeud ROS
+    // Initialisation of ROS node
     ros::init(argc,argv,"A_star_planner");
 
-    // Appel du worker
+    // call worker class
     Worker worker;
 
-    // Routine ROS
     ros::spin();
 }
