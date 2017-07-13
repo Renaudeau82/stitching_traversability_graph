@@ -56,6 +56,11 @@
 <param name="step_size" value="$(arg robot_size)"/>
 </node>
 
+<!-- ===== Transform pixel path into metric path =================================== -->
+<node name="pixel_to_metric_path_node" pkg="stitching_traversability_graph" type="pixel_to_metric_path_node" output="screen" >
+</node>
+
+
 <!-- ===== RVIZ =================================== 
 <node name="rviz" pkg="rviz" type="rviz" args="-d $(find stitching_traversability_graph)/cfg/rviz_config.rviz"/>-->
 

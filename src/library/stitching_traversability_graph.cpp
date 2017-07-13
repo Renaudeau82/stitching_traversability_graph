@@ -172,6 +172,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
         time2 = ros::Time::now();
         duration = time2.toSec() - time1.toSec();
         if(verbose_) ROS_INFO_STREAM(duration<<"sec                       ");
+        //if (verbose_) cv::imshow("elevation_tmp",elevation_tmp);
 
         /// Initialisation of global image with the first image
         if(first)
@@ -271,7 +272,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             cv::Mat gradiant = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_32F);
             cv::magnitude(grad_x,grad_y,gradiant);
             cv::normalize(gradiant, gradiant,0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
-            int amplify_magnitude = 10;// amplfy gradiant for visualisation
+            int amplify_magnitude = 20;// amplfy gradiant for visualisation
             for(unsigned int i=0;i<grad_x.rows;i++)
             {
                 for(unsigned int j=0;j<grad_y.cols;j++)
@@ -342,52 +343,53 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             duration = time2.toSec() - time1.toSec();
             if (verbose_) ROS_INFO_STREAM(duration<<"sec            ");
             //cv::imshow("traversability",traversability_full_image);
-        }
 
-        //--------------------- Publishing ---------------------------------------------------//
-        if (verbose_) ROS_INFO("Publishing ");
-        time1 = ros::Time::now();
+            //--------------------- Publishing ---------------------------------------------------//
+            if (verbose_) ROS_INFO("Publishing ");
+            time1 = ros::Time::now();
 
-        /// publishing points
-        geometry_msgs::Point source; // first point
-        for (int i=0; i < traversability_full_image.rows*traversability_full_image.cols;i++)
-        {
-            if(traversability_full_image.at<uchar>(i/traversability_full_image.cols,i%traversability_full_image.cols) > 100)
+            /// publishing points
+            geometry_msgs::Point source; // first point
+            for (int i=0; i < traversability_full_image.rows*traversability_full_image.cols;i++)
             {
-                source.x = i%elevation_full_image.cols;
-                source.y = i/elevation_full_image.cols;
-                break;
+                if(traversability_full_image.at<uchar>(i/traversability_full_image.cols,i%traversability_full_image.cols) > 100)
+                {
+                    source.x = i%elevation_full_image.cols;
+                    source.y = i/elevation_full_image.cols;
+                    break;
+                }
             }
-        }
-        source_pub_.publish(source);
-        geometry_msgs::Point dest;   // last point
-        for (int i=0; i < traversability_full_image.rows*traversability_full_image.cols;i++)
-        {
-            if(traversability_full_image.at<uchar>(i/traversability_full_image.cols,i%traversability_full_image.cols) > 100)
+            source_pub_.publish(source);
+            geometry_msgs::Point dest;   // last point
+            for (int i=0; i < traversability_full_image.rows*traversability_full_image.cols;i++)
             {
-                dest.x = i%elevation_full_image.cols;
-                dest.y = i/elevation_full_image.cols;
+                if(traversability_full_image.at<uchar>(i/traversability_full_image.cols,i%traversability_full_image.cols) > 100)
+                {
+                    dest.x = i%elevation_full_image.cols;
+                    dest.y = i/elevation_full_image.cols;
+                }
             }
+            dest_pub_.publish(dest);
+
+            /// publishig info for metric transformation
+            std_msgs::Float32MultiArray msgTransform;
+            msgTransform.data.push_back(minX);
+            msgTransform.data.push_back(1.0 / resolution_); // here we need  m/pixel
+            msgTransform.data.push_back(minY);
+            msgTransform.data.push_back(1.0 / resolution_);
+            double minZ = -0.6;
+            msgTransform.data.push_back(minZ);
+            msgTransform.data.push_back(1.0 / zscale);
+            transform_pub_.publish(msgTransform);
+
+            /// publishing image_traversability
+            sensor_msgs::ImagePtr msgPublish;
+            msgPublish = cv_bridge::CvImage(std_msgs::Header(), "mono8", traversability_full_image).toImageMsg();
+            img_pub_.publish (msgPublish);
+
+            pub = false;
         }
-        dest_pub_.publish(dest);
 
-        /// publishig info for metric transformation
-        std_msgs::Float32MultiArray msgTransform;
-        msgTransform.data.push_back(minX);
-        msgTransform.data.push_back(1.0 / resolution_); // here we need  m/pixel
-        msgTransform.data.push_back(minY);
-        msgTransform.data.push_back(1.0 / resolution_);
-        double minZ = -0.6;
-        msgTransform.data.push_back(minZ);
-        msgTransform.data.push_back(1.0 / zscale);
-        transform_pub_.publish(msgTransform);
-
-        /// publishing image_traversability
-        sensor_msgs::ImagePtr msgPublish;
-        msgPublish = cv_bridge::CvImage(std_msgs::Header(), "mono8", traversability_full_image).toImageMsg();
-        img_pub_.publish (msgPublish);
-
-        pub = false;
     }
     else if (verbose_) ROS_INFO_STREAM("not enougth good points : "<<cloud->points.size()<<" points        ");
 

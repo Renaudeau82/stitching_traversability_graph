@@ -28,6 +28,12 @@ cs_add_executable(a_star_planner_node
 )
 target_link_libraries(a_star_planner_node stitching_traversability_graph ${catkin_LIBRARIES})
 
+# create the node to transform path in pixels to path in meters
+cs_add_executable(pixel_to_metric_path_node
+  src/pixel_to_metric_path_node.cpp
+)
+target_link_libraries(pixel_to_metric_path_node stitching_traversability_graph ${catkin_LIBRARIES})
+
 cs_install()
 cs_export()
 

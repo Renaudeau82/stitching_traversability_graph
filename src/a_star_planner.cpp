@@ -1,8 +1,7 @@
 /*-------------------------------------------------------------
  *
- *  Ce code créer un noeud qui permet de calcul de trajectoire dans une carte d'occupation
- *  l'algorithme utilisé est un A* edité par boost
- *
+ *  This node create a maze: a grid_graph from the binary image of traversability
+ *  end compute a A* algorithm to find the path between the source and the goal *
  *
  * ----------------------------------------------------------------*/
 #include <ros/ros.h>

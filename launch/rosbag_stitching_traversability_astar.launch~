@@ -9,7 +9,7 @@
 <arg name="robot_size" default="20"/>
 <arg name="resolution" default="40"/>
 <arg name="gamma" default="1.5"/>
-<arg name="automatic_pub" default="false"/>
+<arg name="automatic_pub" default="true"/>
 
 <!-- ===== Play rosbag ======================================================== -->
 <include file="$(find stitching_traversability_graph)/launch/rosbag_play1.launch"/> 
@@ -55,6 +55,11 @@
 <node name="A_star_planner_node" pkg="stitching_traversability_graph" type="a_star_planner_node" output="screen" >
 <param name="step_size" value="$(arg robot_size)"/>
 </node>
+
+<!-- ===== Transform pixel path into metric path =================================== -->
+<node name="pixel_to_metric_path_node" pkg="stitching_traversability_graph" type="pixel_to_metric_path_node" output="screen" >
+</node>
+
 
 <!-- ===== RVIZ =================================== 
 <node name="rviz" pkg="rviz" type="rviz" args="-d $(find stitching_traversability_graph)/cfg/rviz_config.rviz"/>-->
