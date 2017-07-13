@@ -23,7 +23,6 @@ A_star_planer_node
 
 pixel_to_metric_path_node
 
-
 ## Parameters ##
 
 * **scale :** param from dense reconstruction to reduce the nmber of point in the pointCloud

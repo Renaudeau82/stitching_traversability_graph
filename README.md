@@ -5,6 +5,8 @@ ROS package containing 2 nodes :
 
 *  **a_star_planner_node :**  subscribe to a binary occupation map and to source et goal point then compute the trajectory between them using A* algorithm
 
+*  **pixel_to_metric_path_node :**  subscribe to the pixel trajectory of the A* and transform it into the global metric frame using the informations from the stitching node
+
 ## Dependences ##
 
 * Opencv, Boost, pcl, voxblox, minkindr
