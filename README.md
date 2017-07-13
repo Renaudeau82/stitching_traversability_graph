@@ -11,7 +11,17 @@ ROS package containing 2 nodes :
 
 ## Usage ##
 
-* **roslaunch rosbag_stitching_traversability_astar.launch :** Launch rosbag, dense reconstruction, stiching_traversability and astar_planer
+* **roslaunch rosbag_stitching_traversability_astar.launch :** 
+
+Launch rosbag (you have to use yours) 
+
+dense_stereo (you have to use your calibration file .yaml)
+
+stiching_traversability_graph_node
+
+A_star_planer_node
+
+pixel_to_metric_path_node
 
 ## Parameters ##
 
