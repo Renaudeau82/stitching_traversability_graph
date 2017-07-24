@@ -110,13 +110,14 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
     }
     else return;
 
-    /// clean outliers ( 2.5<x<21 && 25<y<45 && -0.6<z<2.0 ) // zone position, limits !!!
+    /// clean outliers ( 2.5<x<21 && 25<y<45 && -0.6<z<2.0 ) // zone position, limits rosbag1!!!
+    /// clean outliers ( -7<x<26 && -4<y<27 && -0.6<z<12 ) // zone position, limits rosbag2!!!
     pcl::PointIndices::Ptr indices_in (new pcl::PointIndices());
     pcl::ExtractIndices<pcl::PointXYZ> eifilter (false);
     for (size_t i = 0; i < cloud->points.size(); ++i)
     {
         pcl::PointXYZ point = cloud->points[i];
-        if(point.data[0]>2.5 && point.data[0]< 21 && point.data[1]>25 && point.data[1]<45 && point.data[2]>-0.6 && point.data[2]< 2)
+        if(point.data[0]>-7 && point.data[0]< 26 && point.data[1]>-4 && point.data[1]<27 && point.data[2]>-0.6 && point.data[2]< 10)
             indices_in->indices.push_back(i);
     }
     eifilter.setIndices(indices_in);
@@ -151,7 +152,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
         // create tmp images
         int width = resolution_*(xmax-xmin)+1;
         int height = resolution_*(ymax-ymin)+1;
-        zscale = 100; //fixe scale ( zmin = -0.6 known, zmax defined at 1,95m)
+        zscale = 25; //fixe scale 100( zmin = -0.6 known, zmax defined at 1,95m) rosbag1
         if (verbose_) ROS_INFO_STREAM("area : "<<xmin<<"-"<<xmax<<" , "<<ymin<<"-"<<ymax<<" , "<<zmin<<"-"<<zmax<<" -> scale="<<resolution_<<" ("<<width<<","<<height<<") zscale="<<zscale);
         if(width < 0 || height < 0) return;
         cv::Mat elevation_tmp = cv::Mat::zeros(height, width, CV_8UC1);
@@ -314,7 +315,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
                 }
             }
             cv::cvtColor(fusion,fusion,cv::COLOR_HSV2BGR);
-            if(verbose_) cv::imshow("fusion", fusion);
+            //if(verbose_) cv::imshow("fusion", fusion);
             //cv::imshow("gradiant",gradiant);
             //cv::imshow("orientation",orientation);
             //cv::imshow("normal_z",normal_z);
@@ -328,11 +329,11 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             {
                 for (int j=0; j < modifiedImage.cols;j++)
                 {
-                    if(elevation_full_image.at<uchar>(i,j) < 100 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<uchar>(i,j) > 0.85*255)
+                    if(elevation_full_image.at<uchar>(i,j) < 250 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<uchar>(i,j) > 0.85*255) // before z<100
                         traversability_full_image.at<uchar>(i,modifiedImage.cols-j+1) = 255; // flip image to be z downward
                 }
             }
-            if (verbose_) cv::imshow("traversability_image_raw",traversability_full_image);
+            //if (verbose_) cv::imshow("traversability_image_raw",traversability_full_image);
             // median filter to remove small black pixels
             cv::medianBlur(traversability_full_image,traversability_full_image,5);
             // erode to make bigger the places to evode depanding on the robot_size

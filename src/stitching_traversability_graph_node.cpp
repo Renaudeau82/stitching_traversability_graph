@@ -13,8 +13,8 @@ int main(int argc, char **argv) {
   // automatic start after 14 sec (drone in the air)
   ros::Rate rate(0.07);
   cv::waitKey(10);
-  rate.sleep();
-  rate.sleep();
+  //rate.sleep();
+  //rate.sleep();
 
   ros::spin();
   return 0;

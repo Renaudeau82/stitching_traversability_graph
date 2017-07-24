@@ -1,18 +1,22 @@
 <launch>
+<!-- ===== Play rosbag Grass Zurich======================================================== 
+<include file="$(find stitching_traversability_graph)/launch/rosbag_play1.launch"/>
+<arg name="stereo_params_camchain" default="$(find mav_startup)/parameters/mavs/ibis/camchain_p22031.yaml"/> -->
+
+<!-- ===== Play rosbag building Geneva ======================================================== -->
+<include file="$(find stitching_traversability_graph)/launch/rosbag_play2.launch"/> 
+<arg name="stereo_params_camchain" default="$(find erl_playback)/cfg/2017-05-23/camchain_p22031.yaml"/>
+
 <!-- Args -->
 <arg name="mav_name" default='ibis'/>
 <arg name="namespace" default="$(arg mav_name)"/>
 <arg name="dense_mapping_frame" default="enu"/>
 <arg name="scale" default="0.5" />
 <arg name="process_every_nth_frame" default="1" />
-<arg name="stereo_params_camchain" default="$(find mav_startup)/parameters/mavs/ibis/camchain_p22031.yaml"/>
-<arg name="robot_size" default="20"/>
-<arg name="resolution" default="40"/>
+<arg name="robot_size" default="10"/>
+<arg name="resolution" default="20"/>
 <arg name="gamma" default="1.5"/>
 <arg name="automatic_pub" default="true"/>
-
-<!-- ===== Play rosbag ======================================================== -->
-<include file="$(find stitching_traversability_graph)/launch/rosbag_play1.launch"/> 
 <param name="/use_sim_time" value="true"/>
 
 <!-- ===== Mav namespace ================================== -->
@@ -61,7 +65,7 @@
 </node>
 
 
-<!-- ===== RVIZ =================================== 
-<node name="rviz" pkg="rviz" type="rviz" args="-d $(find stitching_traversability_graph)/cfg/rviz_config.rviz"/>-->
+<!-- ===== RVIZ ===================================
+<node name="rviz" pkg="rviz" type="rviz" args="-d $(find stitching_traversability_graph)/cfg/rviz_config.rviz"/> -->
 
 </launch>
