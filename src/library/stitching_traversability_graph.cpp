@@ -23,8 +23,7 @@
  *
  *      Approach :
  *          1) projection the local point cloud into a elevation image
- *          2) stiching this local image in the full image
- *                  using kernel approach to give less weight to border points
+ *          2) stiching this local image in the full image using kernel approach to give less weight to border points
  *          3) compute normals of the elevation image (gradiant + orientation)
  *          4) compute traversability using segmentation on normal_z
  *          5) filtering traversability images *
@@ -169,7 +168,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             pcd_in_tmp.at<unsigned char>(y,x) = 255;
         }
         // improve contrast of elevation map
-        gammaCorrection(elevation_tmp, elevation_tmp, gamma_); //2.0 too much, 1.0 not enougth
+        gammaCorrection(elevation_tmp, elevation_tmp, gamma_); //2.0 too much, 1.0 not enougth // cheating
         time2 = ros::Time::now();
         duration = time2.toSec() - time1.toSec();
         if(verbose_) ROS_INFO_STREAM(duration<<"sec                       ");
@@ -267,44 +266,76 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             // gradiant
             int ddepth = CV_32F;
             cv::Mat grad_x, grad_y;
-            // Gradiant X et Y
             cv::Sobel( modifiedImage, grad_x, ddepth, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT );
             cv::Sobel( modifiedImage, grad_y, ddepth, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT );
             cv::Mat gradiant = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_32F);
             cv::magnitude(grad_x,grad_y,gradiant);
-            cv::normalize(gradiant, gradiant,0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
-            int amplify_magnitude = 20;// amplfy gradiant for visualisation
-            for(unsigned int i=0;i<grad_x.rows;i++)
-            {
-                for(unsigned int j=0;j<grad_y.cols;j++)
-                {
-                    gradiant.at<uchar>(i,j) = gradiant.at<uchar>(i,j)*amplify_magnitude;
-                }
-            }
+            cv::normalize(gradiant, gradiant,0.0, 255.0, cv::NORM_MINMAX, CV_32F);
             // filtering gaussien to reduce higth frequency effect like small pics
             cv::GaussianBlur(gradiant,gradiant,cv::Size(3,3),0,0);
+
             // orientation
             cv::Mat orientation = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_32F); //to store the gradients grad_x.convertTo(grad_x,CV_32F);
             grad_y.convertTo(grad_y,CV_32F);
             grad_x.convertTo(grad_x,CV_32F);
             cv::phase(grad_x, grad_y, orientation,true);
             cv::normalize(orientation, orientation, 0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
+
             // computing normal_z for the elevation
             cv::Mat normal_z = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_32F);
             for (int i=0; i < modifiedImage.rows;i++)
             {
                 for (int j=0; j < modifiedImage.cols;j++)
                 {
-                    Eigen::Vector3d normal(sin(gradiant.at<uchar>(i,j)/255.0) * sin(orientation.at<uchar>(i,j)*2*M_PI/255.0) , sin(gradiant.at<uchar>(i,j)/255.0)  * cos(orientation.at<uchar>(i,j)*2*M_PI/255.0) , 1-gradiant.at<uchar>(i,j)/255.0);
+                    double angle = std::atan(gradiant.at<float>(i,j)/4.0);
+                    Eigen::Vector3d normal(sin(angle) * sin(orientation.at<uchar>(i,j)*2*M_PI/255.0) , sin(angle) * cos(orientation.at<uchar>(i,j)*2*M_PI/255.0) , cos(angle));
+                    //Eigen::Vector3d normal(sin(gradiant.at<float>(i,j)/255.0) * sin(orientation.at<uchar>(i,j)*2*M_PI/255.0) , sin(gradiant.at<float>(i,j)/255.0) * cos(orientation.at<uchar>(i,j)*2*M_PI/255.0) , 1-gradiant.at<float>(i,j)/255.0);
                     normal.normalize();
                     normal_z.at<float>(i,j) = (float)normal.z();
                 }
             }
-            cv::normalize(normal_z, normal_z, 0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
             time2 = ros::Time::now();
             duration = time2.toSec() - time1.toSec();
             if(verbose_) ROS_INFO_STREAM(duration<<"sec                 ");
-            // colorfull drawing
+
+            /// Computation of image traversability
+            if (verbose_) ROS_INFO("Compution of traversability             ");
+            time1 = ros::Time::now();
+            traversability_full_image = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_8U);
+            // segmentation of traversability (thresholding)
+            for (int i=0; i < modifiedImage.rows;i++)
+            {
+                for (int j=0; j < modifiedImage.cols;j++)
+                {
+                    if(elevation_full_image.at<uchar>(i,j) < 250 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<float>(i,j) > 0.80)
+                        traversability_full_image.at<uchar>(i,modifiedImage.cols-j+1) = 255; // flip image to be z downward
+                }
+            }
+            //if (verbose_) cv::imshow("traversability_image_raw",traversability_full_image);
+            // median filter to remove small black pixels
+            cv::medianBlur(traversability_full_image,traversability_full_image,5);
+            // erode to make bigger the places to evode depanding on the robot_size
+            int element_size = (int)robot_size_/4;
+            cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( 2*element_size + 1, 2*element_size+1 ), cv::Point( element_size, element_size ) );
+            cv::morphologyEx( traversability_full_image, traversability_full_image, cv::MORPH_ERODE, element );
+            time2 = ros::Time::now();
+            duration = time2.toSec() - time1.toSec();
+            if (verbose_) ROS_INFO_STREAM(duration<<"sec            ");
+            //cv::imshow("traversability",traversability_full_image);
+
+            /// colorfull drawing
+            int amplify_magnitude = 20;// amplfy gradiant for visualisation
+            for(unsigned int i=0;i<grad_x.rows;i++)
+            {
+                for(unsigned int j=0;j<grad_y.cols;j++)
+                {
+                    if(gradiant.at<float>(i,j)*amplify_magnitude < 255)
+                        gradiant.at<float>(i,j) = gradiant.at<float>(i,j)*amplify_magnitude;
+                    else
+                        gradiant.at<float>(i,j) = 255;
+                }
+            }
+            cv::normalize(gradiant, gradiant,0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
             cv::Mat fusion = cv::Mat::zeros(grad_x.rows, grad_y.cols, CV_8UC3);
             cv::cvtColor(fusion,fusion,cv::COLOR_BGR2HSV);
             for(unsigned int i=0;i<grad_x.rows;i++)
@@ -318,32 +349,8 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             //if(verbose_) cv::imshow("fusion", fusion);
             //cv::imshow("gradiant",gradiant);
             //cv::imshow("orientation",orientation);
-            //cv::imshow("normal_z",normal_z);
-
-            /// Computation of image traversability
-            if (verbose_) ROS_INFO("Compution of traversability             ");
-            time1 = ros::Time::now();
-            traversability_full_image = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_8U);
-            // segmentation of traversability (thresholding)
-            for (int i=0; i < modifiedImage.rows;i++)
-            {
-                for (int j=0; j < modifiedImage.cols;j++)
-                {
-                    if(elevation_full_image.at<uchar>(i,j) < 250 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<uchar>(i,j) > 0.85*255) // before z<100
-                        traversability_full_image.at<uchar>(i,modifiedImage.cols-j+1) = 255; // flip image to be z downward
-                }
-            }
-            //if (verbose_) cv::imshow("traversability_image_raw",traversability_full_image);
-            // median filter to remove small black pixels
-            cv::medianBlur(traversability_full_image,traversability_full_image,5);
-            // erode to make bigger the places to evode depanding on the robot_size
-            int element_size = (int)robot_size_/2;
-            cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( 2*element_size + 1, 2*element_size+1 ), cv::Point( element_size, element_size ) );
-            cv::morphologyEx( traversability_full_image, traversability_full_image, cv::MORPH_ERODE, element );
-            time2 = ros::Time::now();
-            duration = time2.toSec() - time1.toSec();
-            if (verbose_) ROS_INFO_STREAM(duration<<"sec            ");
-            //cv::imshow("traversability",traversability_full_image);
+            cv::normalize(normal_z, normal_z, 0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
+            cv::imshow("normal_z",normal_z);
 
             //--------------------- Publishing ---------------------------------------------------//
             if (verbose_) ROS_INFO("Publishing ");
