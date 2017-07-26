@@ -19,7 +19,7 @@ Launch rosbag (you have to use yours)
 
 dense_stereo (you have to use your calibration file .yaml)
 
-stiching_traversability_graph_node (compute the globale elevation map by stitching locale ones) : ! to clear outliers, you have to know the limits of the area !
+stiching_traversability_graph_node (compute the globale elevation map by stitching locale ones) : ! to clear outliers, you have to know the limits of the area (hardcoded TODO:param)!
 
 A_star_planer_node
 
