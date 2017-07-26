@@ -22,7 +22,7 @@
  *          robot_size the size of the robot for filtering and path sampling
  *
  *      Approach :
- *          1) projection the local point cloud into a elevation image
+ *          1) projection the local point cloud into a elevation image (outlier are detected by knowing the limits of the area before !!!)
  *          2) stiching this local image in the full image using kernel approach to give less weight to border points
  *          3) compute normals of the elevation image (gradiant + orientation)
  *          4) compute traversability using segmentation on normal_z
@@ -266,32 +266,32 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             // gradiant
             int ddepth = CV_32F;
             cv::Mat grad_x, grad_y;
-            cv::Sobel( modifiedImage, grad_x, ddepth, 1, 0, 3, 1, 0, cv::BORDER_DEFAULT );
-            cv::Sobel( modifiedImage, grad_y, ddepth, 0, 1, 3, 1, 0, cv::BORDER_DEFAULT );
+            cv::Scharr( modifiedImage, grad_x, ddepth, 1, 0, 1, 0, cv::BORDER_DEFAULT );
+            cv::Scharr( modifiedImage, grad_y, ddepth, 0, 1, 1, 0, cv::BORDER_DEFAULT );
             cv::Mat gradiant = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_32F);
             cv::magnitude(grad_x,grad_y,gradiant);
-            cv::normalize(gradiant, gradiant,0.0, 255.0, cv::NORM_MINMAX, CV_32F);
             // filtering gaussien to reduce higth frequency effect like small pics
             cv::GaussianBlur(gradiant,gradiant,cv::Size(3,3),0,0);
 
             // orientation
             cv::Mat orientation = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_32F); //to store the gradients grad_x.convertTo(grad_x,CV_32F);
-            grad_y.convertTo(grad_y,CV_32F);
-            grad_x.convertTo(grad_x,CV_32F);
             cv::phase(grad_x, grad_y, orientation,true);
             cv::normalize(orientation, orientation, 0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
 
             // computing normal_z for the elevation
             cv::Mat normal_z = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_32F);
+            double coef = resolution_  * zscale / 16; // 16 for half the sum of scharr pattern
             for (int i=0; i < modifiedImage.rows;i++)
             {
                 for (int j=0; j < modifiedImage.cols;j++)
                 {
-                    double angle = std::atan(gradiant.at<float>(i,j)/4.0);
-                    Eigen::Vector3d normal(sin(angle) * sin(orientation.at<uchar>(i,j)*2*M_PI/255.0) , sin(angle) * cos(orientation.at<uchar>(i,j)*2*M_PI/255.0) , cos(angle));
-                    //Eigen::Vector3d normal(sin(gradiant.at<float>(i,j)/255.0) * sin(orientation.at<uchar>(i,j)*2*M_PI/255.0) , sin(gradiant.at<float>(i,j)/255.0) * cos(orientation.at<uchar>(i,j)*2*M_PI/255.0) , 1-gradiant.at<float>(i,j)/255.0);
-                    normal.normalize();
-                    normal_z.at<float>(i,j) = (float)normal.z();
+                    if(modifiedImage.at<uchar>(i,j) != 0)
+                    {
+                        double angle = std::atan(gradiant.at<float>(i,j)/coef);
+                        Eigen::Vector3d normal(sin(angle) * sin(orientation.at<uchar>(i,j)*2*M_PI/255.0) , sin(angle) * cos(orientation.at<uchar>(i,j)*2*M_PI/255.0) , cos(angle));
+                        normal.normalize();
+                        normal_z.at<float>(i,j) = (float)normal.z();
+                    }
                 }
             }
             time2 = ros::Time::now();
@@ -307,7 +307,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             {
                 for (int j=0; j < modifiedImage.cols;j++)
                 {
-                    if(elevation_full_image.at<uchar>(i,j) < 250 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<float>(i,j) > 0.80)
+                    if(elevation_full_image.at<uchar>(i,j) < 250 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<float>(i,j) > 0.85)
                         traversability_full_image.at<uchar>(i,modifiedImage.cols-j+1) = 255; // flip image to be z downward
                 }
             }
@@ -324,18 +324,18 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             //cv::imshow("traversability",traversability_full_image);
 
             /// colorfull drawing
+            cv::normalize(gradiant, gradiant,0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
             int amplify_magnitude = 20;// amplfy gradiant for visualisation
             for(unsigned int i=0;i<grad_x.rows;i++)
             {
                 for(unsigned int j=0;j<grad_y.cols;j++)
                 {
-                    if(gradiant.at<float>(i,j)*amplify_magnitude < 255)
-                        gradiant.at<float>(i,j) = gradiant.at<float>(i,j)*amplify_magnitude;
+                    if(gradiant.at<uchar>(i,j)*amplify_magnitude < 255)
+                        gradiant.at<uchar>(i,j) = gradiant.at<uchar>(i,j)*amplify_magnitude;
                     else
-                        gradiant.at<float>(i,j) = 255;
+                        gradiant.at<uchar>(i,j) = 255;
                 }
             }
-            cv::normalize(gradiant, gradiant,0x00, 0xFF, cv::NORM_MINMAX, CV_8U);
             cv::Mat fusion = cv::Mat::zeros(grad_x.rows, grad_y.cols, CV_8UC3);
             cv::cvtColor(fusion,fusion,cv::COLOR_BGR2HSV);
             for(unsigned int i=0;i<grad_x.rows;i++)

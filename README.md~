@@ -1,5 +1,5 @@
 # stitching_traversability_graph #
-ROS package containing 3 nodes :
+ROS package containing 2 nodes :
 
 *  **stitching_traversability_graph_node :** subscribe to /stereo_point2 from "/dense_reconstruction" and make a stitching of the elevation map then compute traversability map as a binary image
 
@@ -19,7 +19,7 @@ Launch rosbag (you have to use yours)
 
 dense_stereo (you have to use your calibration file .yaml)
 
-stiching_traversability_graph_node (compute the globale elevation map by stitching locale ones) : ! to clear outliers, you have to know the limits of the area !
+stiching_traversability_graph_node
 
 A_star_planer_node
 
