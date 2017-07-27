@@ -22,6 +22,7 @@
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include <string>
+#include <math.h>
 
 constexpr bool kDefaultVerbose = false;
 constexpr bool kDefaultAutomaticPub = false;

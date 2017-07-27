@@ -49,6 +49,7 @@ TraversabilityGraphStitcher::TraversabilityGraphStitcher(ros::NodeHandle nh,
 
     // initialise variables
     first = true;
+    zscale = 255;
 }
 
 void TraversabilityGraphStitcher::subscribeToTopics() {
@@ -109,15 +110,17 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
     }
     else return;
 
-    /// clean outliers ( 2.5<x<21 && 25<y<45 && -0.6<z<2.0 ) // zone position, limits rosbag1!!!
-    /// clean outliers ( -7<x<26 && -4<y<27 && -0.6<z<12 ) // zone position, limits rosbag2!!!
+    /// clean outliers ( 2.5<x<21 && 25<y<45 && -0.6<z) // zone position, limits rosbag1!!!
+    /// clean outliers ( -7<x<26 && -4<y<27 && -0.6<z) // zone position, limits rosbag2!!!
     pcl::PointIndices::Ptr indices_in (new pcl::PointIndices());
     pcl::ExtractIndices<pcl::PointXYZ> eifilter (false);
     for (size_t i = 0; i < cloud->points.size(); ++i)
     {
         pcl::PointXYZ point = cloud->points[i];
-        if(point.data[0]>-7 && point.data[0]< 26 && point.data[1]>-4 && point.data[1]<27 && point.data[2]>-0.6 && point.data[2]< 10)
+        //if(point.data[0]>2.5 && point.data[0]< 21 && point.data[1]>25 && point.data[1]<45 && point.data[2]>-0.6){
+        if(point.data[0]>-7 && point.data[0]< 26 && point.data[1]>-4 && point.data[1]<27 && point.data[2]>-0.6){
             indices_in->indices.push_back(i);
+        }
     }
     eifilter.setIndices(indices_in);
     eifilter.filterDirectly(cloud);
@@ -151,8 +154,8 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
         // create tmp images
         int width = resolution_*(xmax-xmin)+1;
         int height = resolution_*(ymax-ymin)+1;
-        zscale = 25; //fixe scale 100( zmin = -0.6 known, zmax defined at 1,95m) rosbag1
-        if (verbose_) ROS_INFO_STREAM("area : "<<xmin<<"-"<<xmax<<" , "<<ymin<<"-"<<ymax<<" , "<<zmin<<"-"<<zmax<<" -> scale="<<resolution_<<" ("<<width<<","<<height<<") zscale="<<zscale);
+        double zscale_tmp = std::min(255/(zmax+0.6),zscale); // choose the optimal scale
+        if (verbose_) ROS_INFO_STREAM("area : "<<xmin<<"-"<<xmax<<" , "<<ymin<<"-"<<ymax<<" , "<<zmin<<"-"<<zmax<<" -> scale="<<resolution_<<" ("<<width<<","<<height<<") zscale="<<zscale_tmp);
         if(width < 0 || height < 0) return;
         cv::Mat elevation_tmp = cv::Mat::zeros(height, width, CV_8UC1);
         cv::Mat pcd_in_tmp = cv::Mat::zeros(height, width, CV_8UC1);
@@ -164,11 +167,9 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             unsigned int x = (unsigned int)(resolution_*(point.data[0]-xmin));
             if(y<0 || y>height-1) ROS_ERROR_STREAM("erreur en y : "<<y);
             if(x<0 || x>width-1) ROS_ERROR_STREAM("erreur en x : "<<x);
-            elevation_tmp.at<unsigned char>(y,x) = (unsigned char)(zscale*(cloud->points[i].data[2] + 0.6)); // +0.6 = -zmin
+            elevation_tmp.at<unsigned char>(y,x) = (unsigned char)(zscale_tmp*(cloud->points[i].data[2] + 0.6)); // +0.6 = -zmin
             pcd_in_tmp.at<unsigned char>(y,x) = 255;
         }
-        // improve contrast of elevation map
-        gammaCorrection(elevation_tmp, elevation_tmp, gamma_); //2.0 too much, 1.0 not enougth // cheating
         time2 = ros::Time::now();
         duration = time2.toSec() - time1.toSec();
         if(verbose_) ROS_INFO_STREAM(duration<<"sec                       ");
@@ -181,6 +182,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             maxX = xmax;
             minY = ymin;
             maxY = ymax;
+            zscale = zscale_tmp;
             elevation_full_image = elevation_tmp;
             pcd_in_full_image = pcd_in_tmp;
             first = false;
@@ -190,12 +192,18 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
         {
             if (verbose_) ROS_INFO("Stitching");
             time1 = ros::Time::now();
+            double resizeScale =1;
+            if( zmax*zscale > 255) // we have tu change the z scale to fit the 8U image
+            {
+                resizeScale = zscale_tmp / zscale;
+                zscale = zscale_tmp;
+            }
             // define the new full image
             int width = resolution_*(std::max(xmax,maxX)-std::min(xmin,minX)) +1;
             int height = resolution_*(std::max(ymax,maxY)-std::min(ymin,minY)) +1;
             cv::Mat elevation_new = cv::Mat::zeros(height, width, CV_8UC1);
             cv::Mat pcd_in_new = cv::Mat::zeros(height, width, CV_8UC1);
-            // copy old elevation _ull
+            // copy old elevation_full
             for(unsigned int i=0;i<elevation_full_image.rows;i++)
             {
                 for(unsigned int j=0;j<elevation_full_image.cols;j++)
@@ -204,34 +212,33 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
                     unsigned int J = (unsigned int) j+std::max(0.0,(minX-xmin)*resolution_);
                     if(I<0 || I>height-1) ROS_ERROR_STREAM("erreur en i : "<<I);
                     if(J<0 || J> width-1) ROS_ERROR_STREAM("erreur en j : "<<J);
-                    elevation_new.at<unsigned char>(I,J) = elevation_full_image.at<unsigned char>(i,j);
+                    elevation_new.at<unsigned char>(I,J) = elevation_full_image.at<unsigned char>(i,j) * resizeScale;
                     pcd_in_new.at<unsigned char>(I,J) = pcd_in_full_image.at<unsigned char>(i,j);
                 }
             }
-            // Update !  kernel merging of elevation _mp
-            bool kernel = true;
-            double kernel_coef = (3.0/elevation_tmp.cols) * (3.0/elevation_tmp.cols); // alpha = 1 if  dist=width/3
+            // Update !  kernel merging of elevation_map
+            double kernel_coef = std::min(1.0/elevation_tmp.cols,1.0/elevation_tmp.rows);
             if(verbose_) ROS_INFO_STREAM("kernel_coef = "<<kernel_coef);
             for(unsigned int i=0;i<elevation_tmp.rows;i++)
             {
                 for(unsigned int j=0;j<elevation_tmp.cols;j++)
                 {
-                    if(elevation_tmp.at<unsigned char>(i,j) > 0)
+                    unsigned int I = (unsigned int) i+std::max(0.0,(ymin-minY)*resolution_);
+                    unsigned int J = (unsigned int) j+std::max(0.0,(xmin-minX)*resolution_);
+                    if(I<0 || I>height-1) ROS_ERROR_STREAM("erreur en i : "<<I);
+                    if(J<0 || J> width-1) ROS_ERROR_STREAM("erreur en j : "<<J);
+                    if(elevation_tmp.at<unsigned char>(i,j) > 1)
                     {
-                        unsigned int I = (unsigned int) i+std::max(0.0,(ymin-minY)*resolution_);
-                        unsigned int J = (unsigned int) j+std::max(0.0,(xmin-minX)*resolution_);
-                        if(I<0 || I>height-1) ROS_ERROR_STREAM("erreur en i : "<<I);
-                        if(J<0 || J> width-1) ROS_ERROR_STREAM("erreur en j : "<<J);
-                        if(kernel)
+                        if(elevation_full_image.at<unsigned char>(I,J) > 1) // update of an image point
                         {
                             // weigth change with the distance to the center of the image
-                            double dist = (elevation_tmp.cols/2.0 - j)*(elevation_tmp.cols/2.0 - j) + (elevation_tmp.rows/2.0 - i)*(elevation_tmp.rows/2.0 - i);
-                            double alpha = std::min(std::max(dist*kernel_coef,0.0),0.7);
-                            elevation_new.at<unsigned char>(I,J) = alpha*elevation_new.at<unsigned char>(I,J) + (1-alpha)*(elevation_tmp.at<unsigned char>(i,j)+40); // + 40 offset pour visualisation
+                            double dist = std::sqrt((elevation_tmp.cols/2.0 - j)*(elevation_tmp.cols/2.0 - j) + (elevation_tmp.rows/2.0 - i)*(elevation_tmp.rows/2.0 - i));
+                            double alpha = std::min(std::max(dist*kernel_coef,0.0),0.5) + 0.5;
+                            elevation_new.at<unsigned char>(I,J) = alpha*elevation_new.at<unsigned char>(I,J) + (1-alpha)*(elevation_tmp.at<unsigned char>(i,j)); // + 40 offset for visualisation
                         }
-                        else
+                        else // new point in image
                         {
-                            elevation_new.at<unsigned char>(I,J) = (elevation_new.at<unsigned char>(I,J) + elevation_tmp.at<unsigned char>(i,j) + 40)/2;
+                            elevation_new.at<unsigned char>(I,J) = elevation_tmp.at<unsigned char>(i,j);
                         }
                         pcd_in_new.at<unsigned char>(I,J) = pcd_in_tmp.at<unsigned char>(i,j);
                     }
@@ -251,7 +258,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             time2 = ros::Time::now();
             duration = time2.toSec() - time1.toSec();
             if(verbose_) ROS_INFO_STREAM(duration<<"sec");
-            if (verbose_) ROS_INFO_STREAM("zone : "<<minX<<"-"<<maxX<<" , "<<minY<<"-"<<maxY<<" -> scale="<<resolution_<<" ("<<width<<","<<height<<") ");
+            if (verbose_) ROS_INFO_STREAM("zone : "<<minX<<"-"<<maxX<<" , "<<minY<<"-"<<maxY<<" -> scale="<<resolution_<<" ("<<width<<","<<height<<") zscale="<<zscale);
         }
 
         if (verbose_) cv::imshow("elevation_full",elevation_full_image);
@@ -262,7 +269,9 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             /// Using Opencv to treat elevation map
             if (verbose_) ROS_INFO("Compution normals                   ");
             time1 = ros::Time::now();
-            cv::Mat modifiedImage = elevation_full_image;
+            cv::Mat modifiedImage = elevation_full_image.clone();
+            gammaCorrection(modifiedImage, modifiedImage, gamma_);// cheating
+
             // gradiant
             int ddepth = CV_32F;
             cv::Mat grad_x, grad_y;
@@ -285,7 +294,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             {
                 for (int j=0; j < modifiedImage.cols;j++)
                 {
-                    if(modifiedImage.at<uchar>(i,j) != 0)
+                    if(pcd_in_full_image.at<uchar>(i,j) != 0)
                     {
                         double angle = std::atan(gradiant.at<float>(i,j)/coef);
                         Eigen::Vector3d normal(sin(angle) * sin(orientation.at<uchar>(i,j)*2*M_PI/255.0) , sin(angle) * cos(orientation.at<uchar>(i,j)*2*M_PI/255.0) , cos(angle));
@@ -307,7 +316,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             {
                 for (int j=0; j < modifiedImage.cols;j++)
                 {
-                    if(elevation_full_image.at<uchar>(i,j) < 250 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<float>(i,j) > 0.85)
+                    if(elevation_full_image.at<uchar>(i,j) < 250 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<float>(i,j) > 0.80)
                         traversability_full_image.at<uchar>(i,modifiedImage.cols-j+1) = 255; // flip image to be z downward
                 }
             }
