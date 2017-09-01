@@ -83,7 +83,7 @@ bool TraversabilityGraphStitcher::publishCallback(std_srvs::Empty::Request& requ
 
 void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointCloud2::Ptr& pcd_msg)
 {
-    if (verbose_) ROS_INFO_STREAM("PointCloud received, starting treatment.    ");
+    if (verbose_) ROS_DEBUG_STREAM("PointCloud received, starting treatment.    ");
     ros::Time time0, time1, time2;
     double duration;
     time0 = ros::Time::now();
@@ -132,7 +132,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
     /// Make pcd into depth image if enougth points
     if(cloud->points.size() > 600)
     {
-        if (verbose_) ROS_INFO_STREAM("Compution of pcd_image : "<<cloud->points.size()<<" points    ");
+        if (verbose_) ROS_DEBUG_STREAM("Compution of pcd_image : "<<cloud->points.size()<<" points    ");
         time1 = ros::Time::now();
         // find limits of pcd
         double xmin = 1000;
@@ -155,7 +155,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
         int width = resolution_*(xmax-xmin)+1;
         int height = resolution_*(ymax-ymin)+1;
         double zscale_tmp = std::min(255/(zmax+0.6),zscale); // choose the optimal scale
-        if (verbose_) ROS_INFO_STREAM("area : "<<xmin<<"-"<<xmax<<" , "<<ymin<<"-"<<ymax<<" , "<<zmin<<"-"<<zmax<<" -> scale="<<resolution_<<" ("<<width<<","<<height<<") zscale="<<zscale_tmp);
+        if (verbose_) ROS_DEBUG_STREAM("area : "<<xmin<<"-"<<xmax<<" , "<<ymin<<"-"<<ymax<<" , "<<zmin<<"-"<<zmax<<" -> scale="<<resolution_<<" ("<<width<<","<<height<<") zscale="<<zscale_tmp);
         if(width < 0 || height < 0) return;
         cv::Mat elevation_tmp = cv::Mat::zeros(height, width, CV_8UC1);
         cv::Mat pcd_in_tmp = cv::Mat::zeros(height, width, CV_8UC1);
@@ -172,7 +172,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
         }
         time2 = ros::Time::now();
         duration = time2.toSec() - time1.toSec();
-        if(verbose_) ROS_INFO_STREAM(duration<<"sec                       ");
+        if(verbose_) ROS_DEBUG_STREAM(duration<<"sec                       ");
         //if (verbose_) cv::imshow("elevation_tmp",elevation_tmp);
 
         /// Initialisation of global image with the first image
@@ -190,7 +190,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
         /// stitching of elevation_tmp on globale image
         else
         {
-            if (verbose_) ROS_INFO("Stitching");
+            if (verbose_) ROS_DEBUG("Stitching");
             time1 = ros::Time::now();
             double resizeScale =1;
             if( zmax*zscale > 255) // we have tu change the z scale to fit the 8U image
@@ -218,7 +218,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             }
             // Update !  kernel merging of elevation_map
             double kernel_coef = std::min(1.0/elevation_tmp.cols,1.0/elevation_tmp.rows);
-            if(verbose_) ROS_INFO_STREAM("kernel_coef = "<<kernel_coef);
+            if(verbose_) ROS_DEBUG_STREAM("kernel_coef = "<<kernel_coef);
             for(unsigned int i=0;i<elevation_tmp.rows;i++)
             {
                 for(unsigned int j=0;j<elevation_tmp.cols;j++)
@@ -257,8 +257,8 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
                 maxY = ymax;
             time2 = ros::Time::now();
             duration = time2.toSec() - time1.toSec();
-            if(verbose_) ROS_INFO_STREAM(duration<<"sec");
-            if (verbose_) ROS_INFO_STREAM("zone : "<<minX<<"-"<<maxX<<" , "<<minY<<"-"<<maxY<<" -> scale="<<resolution_<<" ("<<width<<","<<height<<") zscale="<<zscale);
+            if(verbose_) ROS_DEBUG_STREAM(duration<<"sec");
+            if (verbose_) ROS_DEBUG_STREAM("zone : "<<minX<<"-"<<maxX<<" , "<<minY<<"-"<<maxY<<" -> scale="<<resolution_<<" ("<<width<<","<<height<<") zscale="<<zscale);
         }
 
         if (verbose_) cv::imshow("elevation_full",elevation_full_image);
@@ -267,7 +267,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
         if(automatic_pub_ || pub)
         {
             /// Using Opencv to treat elevation map
-            if (verbose_) ROS_INFO("Compution normals                   ");
+            if (verbose_) ROS_DEBUG("Compution normals                   ");
             time1 = ros::Time::now();
             cv::Mat modifiedImage = elevation_full_image.clone();
             gammaCorrection(modifiedImage, modifiedImage, gamma_);// cheating
@@ -305,10 +305,10 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             }
             time2 = ros::Time::now();
             duration = time2.toSec() - time1.toSec();
-            if(verbose_) ROS_INFO_STREAM(duration<<"sec                 ");
+            if(verbose_) ROS_DEBUG_STREAM(duration<<"sec                 ");
 
             /// Computation of image traversability
-            if (verbose_) ROS_INFO("Compution of traversability             ");
+            if (verbose_) ROS_DEBUG("Compution of traversability             ");
             time1 = ros::Time::now();
             traversability_full_image = cv::Mat::zeros(modifiedImage.rows, modifiedImage.cols, CV_8U);
             // segmentation of traversability (thresholding)
@@ -316,7 +316,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             {
                 for (int j=0; j < modifiedImage.cols;j++)
                 {
-                    if(elevation_full_image.at<uchar>(i,j) < 250 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<float>(i,j) > 0.80)
+                    if(elevation_full_image.at<uchar>(i,j) < 250 && pcd_in_full_image.at<uchar>(i,j) > 0  && normal_z.at<float>(i,j) > 0.75)
                         traversability_full_image.at<uchar>(i,modifiedImage.cols-j+1) = 255; // flip image to be z downward
                 }
             }
@@ -326,10 +326,12 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             // erode to make bigger the places to evode depanding on the robot_size
             int element_size = (int)robot_size_/4;
             cv::Mat element = cv::getStructuringElement( cv::MORPH_ELLIPSE, cv::Size( 2*element_size + 1, 2*element_size+1 ), cv::Point( element_size, element_size ) );
-            cv::morphologyEx( traversability_full_image, traversability_full_image, cv::MORPH_ERODE, element );
+            cv::morphologyEx( traversability_full_image, traversability_full_image, cv::MORPH_DILATE, element ); //or ERODE
+            // median filter to remove small black pixels
+            cv::medianBlur(traversability_full_image,traversability_full_image,5);
             time2 = ros::Time::now();
             duration = time2.toSec() - time1.toSec();
-            if (verbose_) ROS_INFO_STREAM(duration<<"sec            ");
+            if (verbose_) ROS_DEBUG_STREAM(duration<<"sec            ");
             //cv::imshow("traversability",traversability_full_image);
 
             /// colorfull drawing
@@ -362,7 +364,7 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
             cv::imshow("normal_z",normal_z);
 
             //--------------------- Publishing ---------------------------------------------------//
-            if (verbose_) ROS_INFO("Publishing ");
+            if (verbose_) ROS_DEBUG("Publishing ");
             time1 = ros::Time::now();
 
             /// publishing points
@@ -408,12 +410,12 @@ void TraversabilityGraphStitcher::pointCloudCallback(const sensor_msgs::PointClo
         }
 
     }
-    else if (verbose_) ROS_INFO_STREAM("not enougth good points : "<<cloud->points.size()<<" points        ");
+    else if (verbose_) ROS_DEBUG_STREAM("not enougth good points : "<<cloud->points.size()<<" points        ");
 
-    if (verbose_) ROS_INFO("Treatment of the PointCloud ok!       ");
+    if (verbose_) ROS_DEBUG("Treatment of the PointCloud ok!       ");
     time2 = ros::Time::now();
     duration = time2.toSec() - time0.toSec();
-    if (verbose_) ROS_INFO_STREAM(duration<<"sec\n              ");
+    if (verbose_) ROS_DEBUG_STREAM(duration<<"sec\n              ");
     if (verbose_) cv::waitKey(10);
 }
 
